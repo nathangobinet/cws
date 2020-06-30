@@ -1,0 +1,62 @@
+server {
+  listen       443;
+  server_name  cws.yourdomain;
+  root         /var/www/htdocs;
+
+  ssl                    on;
+  ssl_dhparam            /etc/ssl/cws.dhparam;
+  ssl_certificate        /etc/ssl/cws.crt;
+  ssl_certificate_key    /etc/ssl/private/cws.key;
+  ssl_client_certificate /etc/ssl/cws.crt;
+
+  ssl_session_timeout  5m;
+  ssl_session_cache    shared:SSL:1m;
+
+  ssl_ciphers  HIGH:!aNULL:!MD5:!RC4;
+  ssl_prefer_server_ciphers   on;
+
+  ssl_verify_client optional_no_ca;
+
+  location ~* ^/ca/[^/]+\.pl {
+    gzip                 off;
+    fastcgi_pass         unix:/run/cws/cws.fcgi;
+    fastcgi_index        index.none;
+
+    fastcgi_param HTTPS                on;
+    # http://nginx.org/en/docs/http/ngx_http_ssl_module.html
+    fastcgi_param CLIENTS              $ssl_client_verify;
+    fastcgi_param AUTH                 $ssl_client_s_dn_legacy;
+    fastcgi_param CA                   $ssl_client_i_dn_legacy;
+    fastcgi_param CLIENT_CERT          $ssl_client_cert;
+
+    include /etc/nginx/fastcgi_params;
+
+    fastcgi_buffers 16 16k;
+    fastcgi_buffer_size 32k;
+  }
+
+  location ~* ^/[^/]+\.pl {
+    gzip                       off;
+    fastcgi_pass               unix:/run/cws/cws.fcgi;
+    fastcgi_index              index.none;
+
+    fastcgi_param HTTPS        on;
+    fastcgi_param AUTH         root;
+
+    include /etc/nginx/fastcgi_params;
+
+    fastcgi_buffers            16 16k;
+    fastcgi_buffer_size        32k;
+  }
+
+  location /configuration {
+    fastcgi_param HTTPS              on;
+    fastcgi_param AUTH               root;
+
+    include /etc/nginx/fastcgi_params;
+
+    fastcgi_pass         unix:/run/cws/cws.fcgi;
+    fastcgi_index        index.none;
+    fastcgi_buffers      16 16k;
+  }
+}
