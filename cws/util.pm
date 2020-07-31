@@ -12,6 +12,7 @@ use File::Path qw(make_path);
 use File::Temp qw/ tempfile /;
 use IPC::Open3;
 use Sys::Syslog qw(:standard :macros);
+use IPC::Cmd qw[run_forked];
   
 sub apply_template($$$) {
   my ($template_file, $output_file, $replace) = @_;
@@ -224,24 +225,21 @@ fail_read_cn:
 sub system_log($@)
 {
   (my $logger, my @cmd) = @_;
-  my $rc = undef;
+  my $cmd = (join  ' ', @cmd);
 
   $logger->open_logfile();
-  $logger->info('Running: '.(join  ' ', @cmd));
+  $logger->info('Running: '.$cmd);
+  my $result = run_forked( $cmd, { timeout => 120 } );
   if (exists $logger->{'logger_fh'} and defined($logger->{'logger_fh'})) {
     my $fh = $logger->{'logger_fh'};
-
-    $rc = open my $cmd_fh, '-|', '"'.(join  '" "', @cmd).'" 2>&1';
-    unless ($rc) {
-      return 255;
-    }
-    print $fh (<$cmd_fh>);
-    close $cmd_fh;
-    $rc = $? >> 8;
-  } else {
-    $rc = system(@cmd);
+    print $fh 'ERR:'.$result->{'stderr'};
   }
 
-  return $rc;
+  if ( $result->{'exit_code'} ) {
+    $logger->info( $cmd.':'.$result->{'stdout'} );
+    $logger->err( $cmd.':'.$result->{'stderr'} );
+  }
+
+  return $result->{'exit_code'};
 }
 1;
