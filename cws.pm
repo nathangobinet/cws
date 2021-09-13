@@ -51,17 +51,30 @@ sub readconf($) {
 }
 
 sub init {
-  my( $argi )= grep { $ARGV[$_] eq '-c' } 0..$#ARGV;
-  if (defined $argi && $#ARGV > $argi) {
-    $argi = $ARGV[$argi+1];
-  } else {
-    $argi = '/etc/cws/global.conf';
-  }
-  my @e = readconf($argi);
+  my $confpath = get_conf_path();
+  my @e = readconf($confpath);
   if ( $#e ne -1 ) {
     my $err = join "\n", @e;
     die 'configuration problem:'."\n".$err;
   }
+}
+
+sub get_conf_path {
+  my $environment = $ENV{ENVIRONMENT};
+  # If environment is not defined, set up default as production
+  if (not defined $environment) {
+    $environment = 'PRODUCTION';
+  }
+
+  my $prefix = $environment eq 'PRODUCTION' ? 'prod' : 'dev';
+  my $confpath = '/etc/cws/global.'.$prefix.'.conf';
+
+  # Fallback to default conf
+  if (not -e $confpath) {
+    $confpath = '/etc/cws/global.conf';
+  }
+
+  return $confpath;
 }
 
 ##
